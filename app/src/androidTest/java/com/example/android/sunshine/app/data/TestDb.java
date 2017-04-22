@@ -106,6 +106,62 @@ public class TestDb extends AndroidTestCase {
     public void testLocationTable() {
         Log.d(LOG_TAG, "Starting testLocationTable yo.");
 
+        insertLocation();
+
+        Log.d(LOG_TAG, "Finished test of location table");
+    }
+
+    /*
+        Students:  Here is where you will build code to test that we can insert and query the
+        database.  We've done a lot of work for you.  You'll want to look in TestUtilities
+        where you can use the "createWeatherValues" function.  You can
+        also make use of the validateCurrentRecord function from within TestUtilities.
+     */
+    public void testWeatherTable() {
+        // First insert the location, and then use the locationRowId to insert
+        // the weather. Make sure to cover as many failure cases as you can.
+
+        // Instead of rewriting all of the code we've already written in testLocationTable
+        // we can move this code to insertLocation and then call insertLocation from both
+        // tests. Why move it? We need the code to return the ID of the inserted location
+        // and our testLocationTable can only return void because it's a test.
+        long locationRowIdx = insertLocation();
+
+        // First step: Get reference to writable database
+        SQLiteDatabase db = new WeatherDbHelper(this.mContext).getWritableDatabase();
+        assertTrue("Database not open :(", db.isOpen());
+
+        // Create ContentValues of what you want to insert
+        // (you can use the createWeatherValues TestUtilities function if you wish)
+        ContentValues weatherTestValues = TestUtilities.createWeatherValues(locationRowIdx);
+
+        // Insert ContentValues into database and get a row ID back
+        db.insert(WeatherContract.WeatherEntry.TABLE_NAME, null, weatherTestValues);
+
+        // Query the database and receive a Cursor back
+        Cursor c = db.query(WeatherContract.WeatherEntry.TABLE_NAME,
+                null, null, null, null, null, null);
+
+        // Move the cursor to a valid database row
+        assertTrue("Cursor ain't right", c.moveToFirst());
+
+        // Validate data in resulting Cursor with the original ContentValues
+        // (you can use the validateCurrentRecord function in TestUtilities to validate the
+        // query if you like)
+        TestUtilities.validateCurrentRecord("Weather data wasn't added correctly.", c, weatherTestValues);
+
+        // Finally, close the cursor and database
+        c.close();
+        db.close();
+    }
+
+
+    /*
+        Students: This is a helper method for the testWeatherTable quiz. You can move your
+        code from testLocationTable to here so that you can call this code from both
+        testWeatherTable and testLocationTable.
+     */
+    public long insertLocation() {
         // First step: Get reference to writable database
         // This call will open the database if it already exists.
         SQLiteDatabase db = new WeatherDbHelper(
@@ -127,66 +183,27 @@ public class TestDb extends AndroidTestCase {
         // Query the database and receive a Cursor back
         Cursor c = db.query(WeatherContract.LocationEntry.TABLE_NAME, null, null, null, null, null, null);
 
+        // Move the cursor to a valid database row.
         assertTrue("The cursor is invalid yo.", c.moveToFirst());
 
+        // Print all city names to log.
         int nameColumnIdx = c.getColumnIndex(WeatherContract.LocationEntry.COLUMN_CITY_NAME);
-
         do
         {
             Log.d(LOG_TAG, c.getString(nameColumnIdx));
         }
         while (c.moveToNext());
 
-        // Move the cursor to a valid database row
-
         // Validate data in resulting Cursor with the original ContentValues
         // (you can use the validateCurrentRecord function in TestUtilities to validate the
         // query if you like)
+        c.moveToFirst();
+        TestUtilities.validateCurrentRecord("The entries in the database did not match expected values.", c, testValues);
 
-        // Finally, close the cursor and database
+        // Finally, close the cursor and database.
+        c.close();
+        db.close();
 
-    }
-
-    /*
-        Students:  Here is where you will build code to test that we can insert and query the
-        database.  We've done a lot of work for you.  You'll want to look in TestUtilities
-        where you can use the "createWeatherValues" function.  You can
-        also make use of the validateCurrentRecord function from within TestUtilities.
-     */
-    public void testWeatherTable() {
-        // First insert the location, and then use the locationRowId to insert
-        // the weather. Make sure to cover as many failure cases as you can.
-
-        // Instead of rewriting all of the code we've already written in testLocationTable
-        // we can move this code to insertLocation and then call insertLocation from both
-        // tests. Why move it? We need the code to return the ID of the inserted location
-        // and our testLocationTable can only return void because it's a test.
-
-        // First step: Get reference to writable database
-
-        // Create ContentValues of what you want to insert
-        // (you can use the createWeatherValues TestUtilities function if you wish)
-
-        // Insert ContentValues into database and get a row ID back
-
-        // Query the database and receive a Cursor back
-
-        // Move the cursor to a valid database row
-
-        // Validate data in resulting Cursor with the original ContentValues
-        // (you can use the validateCurrentRecord function in TestUtilities to validate the
-        // query if you like)
-
-        // Finally, close the cursor and database
-    }
-
-
-    /*
-        Students: This is a helper method for the testWeatherTable quiz. You can move your
-        code from testLocationTable to here so that you can call this code from both
-        testWeatherTable and testLocationTable.
-     */
-    public long insertLocation() {
-        return -1L;
+        return rowIndex;
     }
 }
