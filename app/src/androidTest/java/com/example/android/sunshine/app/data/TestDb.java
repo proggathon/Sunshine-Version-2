@@ -57,12 +57,12 @@ public class TestDb extends AndroidTestCase {
         Cursor c = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'", null);
 
         assertTrue("Error: This means that the database has not been created correctly",
-                c.moveToFirst());
+                c.moveToFirst()); // Will return false if cursor is empty.
 
         // verify that the tables have been created
         do {
-            tableNameHashSet.remove(c.getString(0));
-        } while( c.moveToNext() );
+            tableNameHashSet.remove(c.getString(0)); // 0 is the first column - supposedly database name.
+        } while( c.moveToNext() ); // Expected behavior is removing the strings "weather" and "location" from tableNameHasSet, rendering it empty.
 
         // if this fails, it means that your database doesn't contain both the location entry
         // and weather entry tables
@@ -127,20 +127,32 @@ public class TestDb extends AndroidTestCase {
         // and our testLocationTable can only return void because it's a test.
         long locationRowIdx = insertLocation();
 
-        // First step: Get reference to writable database
+        // First step: Get reference to writable database (which now already contains a Location entry).
         SQLiteDatabase db = new WeatherDbHelper(this.mContext).getWritableDatabase();
         assertTrue("Database not open :(", db.isOpen());
+
+        // Enforce use of foreign keys (necessary each time db is opened because SQLite databases are stupid).
+        db.rawQuery("PRAGMA foreign_keys = ON", null);
+        //db.setForeignKeyConstraintsEnabled(true); // Does same as above.
 
         // Create ContentValues of what you want to insert
         // (you can use the createWeatherValues TestUtilities function if you wish)
         ContentValues weatherTestValues = TestUtilities.createWeatherValues(locationRowIdx);
 
         // Insert ContentValues into database and get a row ID back
-        db.insert(WeatherContract.WeatherEntry.TABLE_NAME, null, weatherTestValues);
+        long weatherRowIdx = db.insert(WeatherContract.WeatherEntry.TABLE_NAME, null, weatherTestValues);
+        assertTrue("Weather entry couldn't be added.", weatherRowIdx != -1);
 
         // Query the database and receive a Cursor back
         Cursor c = db.query(WeatherContract.WeatherEntry.TABLE_NAME,
                 null, null, null, null, null, null);
+
+        // Repeat but try to add a Weather entry with an invalid foreign key to the Location table.
+        long locationRowIdxInvalid = 77;
+        ContentValues weatherTestValuesInvalid = TestUtilities.createWeatherValues(locationRowIdxInvalid);
+        long weatherRowIdxInvalid = db.insert(WeatherContract.WeatherEntry.TABLE_NAME, null, weatherTestValuesInvalid);
+        assertTrue("Weather entry had invalid foreign key but was mysteriously added anyway",
+                weatherRowIdxInvalid == -1);
 
         // Move the cursor to a valid database row
         assertTrue("Cursor ain't right", c.moveToFirst());
@@ -149,6 +161,13 @@ public class TestDb extends AndroidTestCase {
         // (you can use the validateCurrentRecord function in TestUtilities to validate the
         // query if you like)
         TestUtilities.validateCurrentRecord("Weather data wasn't added correctly.", c, weatherTestValues);
+
+        // Try to query a table that doesn't exist.
+        // Test commented because an invalid query apparently throws SQLException although the documentation does not say anything about that.
+        //String fakeDatabase = "haircut";
+        //c = db.query(fakeDatabase, null, null, null, null, null, null);
+        //assertFalse("Tried to find a database that shouldn't exist but cursor wasn't invalid",
+        //        c.moveToFirst());
 
         // Finally, close the cursor and database
         c.close();
@@ -168,7 +187,9 @@ public class TestDb extends AndroidTestCase {
                 this.mContext).getWritableDatabase();
         assertEquals(true, db.isOpen());
 
-        // TODO Check if there is a table or if we just opened the DB? Actually the two are identical since the onCreate function of the WeatherDbHelper creates the two tables... Also in logcat, I can verify that the onCreate was called again. I now note that setUp is run between *each* test! :)
+        // Check if there is a table or if we only opened the DB?
+        // Actually the two are identical since the onCreate function of the WeatherDbHelper creates the two tables...
+        // Also in logcat, I can verify that the onCreate was called again. I now note that setUp is run between *each* test! :)
 
         // Create ContentValues of what you want to insert
         // (you can use the createNorthPoleLocationValues if you wish)
